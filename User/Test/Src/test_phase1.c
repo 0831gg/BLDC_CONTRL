@@ -145,7 +145,7 @@ void Test_Phase1_Init(void)
     bsp_ctrl_sd_init();
     bsp_pwm_init();
 
-    BSP_UART_Printf("\r\n[P1] Phase1 start, Break temporarily disabled for PWM check\r\n");
+    BSP_UART_Printf("\r\n[P1] Phase1 start, Break enabled (low level active)\r\n");
     BSP_UART_Printf("\r\n[P1] KEY0 next step, KEY1 previous step, KEY2 all off\r\n");
     test_phase1_apply_step(s_step);
 }
