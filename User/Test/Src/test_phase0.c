@@ -48,7 +48,7 @@
  *   0 = JustFloat  (二进制浮点，Vofa上位机选 JustFloat)
  *   1 = FireWater  (文本格式，  Vofa上位机选 FireWater)
  */
-#define TEST_VOFA_PROTOCOL    0
+#define TEST_VOFA_PROTOCOL    0  //JustFloat 和 FireWater切换
 
 /* Vofa 数据发送间隔(ms)，10ms = 100Hz 刷新率 */
 #define TEST_VOFA_INTERVAL_MS   10

@@ -10,6 +10,7 @@
       <TargetName>BLDC_HALL</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARMCC</pCCUsed>
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -554,6 +555,11 @@
           <GroupName>User/Bsp</GroupName>
           <Files>
             <File>
+              <FileName>bsp_ctrl_sd.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User\Bsp\Inc\bsp_ctrl_sd.h</FilePath>
+            </File>
+            <File>
               <FileName>bsp_delay.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\User\Bsp\Inc\bsp_delay.h</FilePath>
@@ -569,9 +575,19 @@
               <FilePath>..\User\Bsp\Inc\bsp_led.h</FilePath>
             </File>
             <File>
+              <FileName>bsp_pwm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User\Bsp\Inc\bsp_pwm.h</FilePath>
+            </File>
+            <File>
               <FileName>bsp_uart.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\User\Bsp\Inc\bsp_uart.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_ctrl_sd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Bsp\Src\bsp_ctrl_sd.c</FilePath>
             </File>
             <File>
               <FileName>bsp_delay.c</FileName>
@@ -587,6 +603,11 @@
               <FileName>bsp_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\Bsp\Src\bsp_led.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Bsp\Src\bsp_pwm.c</FilePath>
             </File>
             <File>
               <FileName>bsp_uart.c</FileName>
@@ -629,9 +650,24 @@
           <GroupName>User/Test</GroupName>
           <Files>
             <File>
+              <FileName>test_phase0.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User\Test\Inc\test_phase0.h</FilePath>
+            </File>
+            <File>
+              <FileName>test_phase1.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User\Test\Inc\test_phase1.h</FilePath>
+            </File>
+            <File>
               <FileName>test_phase0.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\Test\Src\test_phase0.c</FilePath>
+            </File>
+            <File>
+              <FileName>test_phase1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Test\Src\test_phase1.c</FilePath>
             </File>
           </Files>
         </Group>
