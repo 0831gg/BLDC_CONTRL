@@ -112,6 +112,12 @@ static void test_phase1_apply_step(test_phase1_step_t step)
             BSP_UART_Printf("[P1] Step5: All outputs off\r\n");
             break;
     }
+
+    BSP_UART_Printf("[P1] Step=%u SD=%u Duty=%u Break=%u\r\n",
+                    (unsigned int)step,
+                    (unsigned int)bsp_ctrl_sd_is_enabled(),
+                    (unsigned int)bsp_pwm_duty_get(),
+                    (unsigned int)bsp_pwm_is_break_fault());
 }
 
 static void test_phase1_step_next(void)
@@ -139,6 +145,7 @@ void Test_Phase1_Init(void)
     bsp_ctrl_sd_init();
     bsp_pwm_init();
 
+    BSP_UART_Printf("\r\n[P1] Phase1 start, Break temporarily disabled for PWM check\r\n");
     BSP_UART_Printf("\r\n[P1] KEY0 next step, KEY1 previous step, KEY2 all off\r\n");
     test_phase1_apply_step(s_step);
 }
