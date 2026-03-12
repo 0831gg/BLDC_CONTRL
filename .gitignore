@@ -1,0 +1,29 @@
+# Keil MDK 编译输出
+MDK-ARM/BLDC_HALL/
+MDK-ARM/*.uvguix.*
+MDK-ARM/.vscode/uv4.log
+
+# ARM 编译中间文件
+*.o
+*.d
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.dep
+*.iex
+*.tra
+*.crf
+*.sbr
+*.htm
+
+# 调试配置（机器相关）
+MDK-ARM/DebugConfig/
+
+# CubeMX 生成的辅助文件
+.mxproject
+
+# VS Code 插件缓存
+MDK-ARM/.vscode/
