@@ -76,7 +76,7 @@ void MX_TIM1_Init(void)
     Error_Handler();
   }
   sBreakInputConfig.Source = TIM_BREAKINPUTSOURCE_BKIN;
-  sBreakInputConfig.Enable = TIM_BREAKINPUTSOURCE_DISABLE;
+  sBreakInputConfig.Enable = TIM_BREAKINPUTSOURCE_ENABLE;
   sBreakInputConfig.Polarity = TIM_BREAKINPUTSOURCE_POLARITY_LOW;
   if (HAL_TIMEx_ConfigBreakInput(&htim1, TIM_BREAKINPUT_BRK, &sBreakInputConfig) != HAL_OK)
   {
@@ -110,7 +110,7 @@ void MX_TIM1_Init(void)
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
   sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_ENABLE;
   sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_LOW;
   sBreakDeadTimeConfig.BreakFilter = 0;
   sBreakDeadTimeConfig.BreakAFMode = TIM_BREAK_AFMODE_INPUT;
