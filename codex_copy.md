@@ -94,6 +94,7 @@
   - `HAL_ADCEx_InjectedStart_IT()` 或与当前方案对应的启动方式
 - 原因：只配置外设但不完成启动流程，后面测试时会出现“配置看着对，但数据始终不更新”的问题
 - 当前复查结果：未满足。当前 `main.c` 仍只做外设初始化并进入 `test_phase0`，没有看到 `ADC2` 校准和注入转换启动流程；这项仍需要在后续 `bsp_adc_motor.c` 或 `test_phase2` 中补上。
+- 2026-03-13 更新：代码层已补齐 `ADC2` 注入启动流程。当前 `User/Bsp/Src/bsp_adc_motor.c` 已实现 `HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED)` 与 `HAL_ADCEx_InjectedStart_IT(&hadc2)`，`main.c` 也已切换到 `test_phase2` 入口；当前状态应视为“代码已满足，待本机编译与板级实测确认”。
 
 #### 7. TIM5 启动方式
 
@@ -539,6 +540,82 @@ void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
 | `ADC_GetInjectedConversionValue()` | `HAL_ADCEx_InjectedGetValue()` |
 | 注入完成中断单独转发 | `HAL_ADCEx_InjectedConvCpltCallback()` |
 | 注入回调里再触发规则组 | 直接读取 ADC1 DMA 缓冲区，不再软件链式触发 |
+
+##### Phase 2 进度更新
+
+- 2026-03-13：已新增 `User/Bsp/Inc/bsp_adc_motor.h`、`User/Bsp/Src/bsp_adc_motor.c`、`User/Test/Inc/test_phase2.h`、`User/Test/Src/test_phase2.c`。
+- 2026-03-13：`ADC1 DMA + ADC2 Injected` 的代码启动链路已接通，当前实现包含 `ADC1 DMA` 启动、`ADC2` 校准、`ADC2 Injected Start IT`、注入完成回调取 `IU/IV/IW`。
+- 2026-03-13：`main.c` 当前已切换为 `Test_Phase2_Init()` / `Test_Phase2_Loop()`，用于独立验证 `VBUS`、`TEMP`、`IU`、`IV`、`IW`、`Jupd`。
+- 2026-03-13：当前仍需本机编译和板级实测来确认最终状态，尤其要确认 `Jupd` 是否持续递增，以及 `VBUS/TEMP/IU/IV/IW` 是否符合预期。
+- 2026-03-13：已补齐 `bsp_adc_get_phase_current()`、`bsp_adc_get_vbus()`、`bsp_adc_get_temp()` 接口，用于统一后续 `analog_calculate` / `motor_execute` 的调用方式。
+
+##### Phase 2 测试结果记录模板
+
+- 2026-03-13 预留模板：编译结果：`待填写`
+- 2026-03-13 预留模板：上电启动日志：`待填写`
+- 2026-03-13 预留模板：`VBUS Raw / VBUS(V)`：`待填写`
+- 2026-03-13 预留模板：`TEMP Raw / TEMP(degC)`：`待填写`
+- 2026-03-13 预留模板：`IU / IV / IW / Jupd`：`待填写`
+- 2026-03-13 预留模板：示波器 / 万用表对照结论：`待填写`
+- 2026-03-13 实测记录：`test_phase2` 已能进入循环并持续串口打印，说明 `Phase2` 主入口、串口链路、`ADC1` 轮询兜底路径均已跑通。
+- 2026-03-13 实测记录：当前打印表现为 `VBUS/TEMP` 原始值会变化，但换算值明显不可信；这更像“参数未标定”或“采样点悬空/比例未确认”，暂不作为 ADC 触发链路失败结论。
+- 2026-03-13 实测记录：当前 `IU/IV/IW = 0` 且 `Jupd = 0` 持续不变，说明 `ADC2 Injected` 触发链路尚未真正跑起来。
+- 2026-03-13 实测记录：母线电压调到约 `20V` 后，串口打印 `VBUS=19.54V~19.56V`，与实际设定值基本一致，`VBUS` 链路判定通过。
+- 2026-03-13 实测记录：`ADC2` 注入采样当前 `IU/IV/IW` 有稳定数值，且 `Jupd` 持续递增，说明 `TIM1 -> ADC2 Injected` 同步触发链路判定通过。
+
+##### Phase 2 判定标准
+
+- 2026-03-13：编译通过，`test_phase2` 可正常下载运行。
+- 2026-03-13：串口能稳定打印 `VBUS`、`TEMP`、`IU`、`IV`、`IW`、`Jupd`。
+- 2026-03-13：PWM 触发开启后，`Jupd` 应持续递增；关闭触发后，`Jupd` 增长应明显停止或维持不变。
+- 2026-03-13：`VBUS` 原始值与万用表变化趋势一致，`TEMP` 原始值与加热/降温趋势一致。
+- 2026-03-13：`IU/IV/IW` 不应长期固定为完全不变的死值，也不应出现明显随机乱跳。
+- 2026-03-13：若 `bsp_adc_get_vbus()`、`bsp_adc_get_temp()` 的换算值与实测偏差较大，优先复核分压比与 NTC 参数，而不是先怀疑 ADC 触发链路。
+- 2026-03-13：若 `IU/IV/IW` 持续为 0 且 `Jupd` 始终不递增，优先检查 `TIM1 CH4 CCR4` 是否真正产生 `OC4REF` 事件，再检查 `ADC2 ExternalTrigInjecConv` 与中断启动链路。
+
+##### Phase 2 当前实现与原计划差异
+
+- 2026-03-13：当前 `ADC2 Injected` 已基本按原计划方案落地，采用 `HAL_ADCEx_InjectedStart_IT()` + `TIM1 TRGO/OC4REF` 同步触发，`IU/IV/IW` 与 `Jupd` 已验证通过。
+- 2026-03-13：当前 `ADC1` 尚未回到原计划中的 `DMA` 正式方案，而是采用临时 `polling fallback`：主循环周期内调用 `bsp_adc_regular_refresh()`，执行 `Start -> Poll rank1 -> Poll rank2 -> Stop` 读取 `VBUS/TEMP`。
+- 2026-03-13：这种 `polling fallback` 方案适合 `Phase2` 链路验证，但不是最终推荐实现；现阶段已经出现过 `ADC1 rank2 poll timeout`，说明它可用于调试，但长期稳定性与工程完整性不如 `ADC1 DMA`。
+- 2026-03-13：原计划中的正式方案仍然是：`ADC1` 使用 `HAL_ADC_Start_DMA()` 后台连续更新 `VBUS/TEMP` 缓冲区，主循环只读取缓存；后续若进入更长期运行或 `Phase5` 状态机，建议回头修复 `ADC1 DMA` 并替换掉当前 fallback 方案。
+
+##### Phase 2 双方案保留说明
+
+- 2026-03-13：当前代码同时保留了两种 `ADC1` 采样方式，并默认优先采用 `DMA`。
+- 2026-03-13：默认正式方案为 `ADC1 DMA`：在 `bsp_adc_motor_init()` 中调用 `HAL_ADC_Start_DMA(&hadc1, (uint32_t *)s_adc1_dma_buf, 2U)`，主循环直接读取 `s_adc1_dma_buf[0/1]`。
+- 2026-03-13：备选方案为 `polling fallback`：若 `HAL_ADC_Start_DMA()` 失败，则自动切换到 `Start -> Poll rank1 -> Poll rank2 -> Stop` 的轮询读取方式，以保证 `VBUS/TEMP` 仍可用于调试和阶段验证。
+- 2026-03-13：当前串口启动信息会打印 `ADC1 mode=dma` 或 `ADC1 mode=polling_backup`，用于确认本次运行实际使用的是哪种方案。
+
+##### Phase 2 两种方案对应的 CubeMX 配置
+
+- 2026-03-13：`ADC1 DMA` 正式方案推荐的 CubeMX 配置：`ScanConvMode=ENABLE`、`NbrOfConversion=2`、`ContinuousConvMode=ENABLE`、`DMAContinuousRequests=ENABLE`、`External Trigger=Software Start`、`Sampling Time=92.5 cycles`。
+- 2026-03-13：`ADC1 polling fallback` 备选方案推荐的 CubeMX 配置：`ScanConvMode=ENABLE`、`NbrOfConversion=2`、`ContinuousConvMode=DISABLE`、`DMAContinuousRequests=DISABLE`、`External Trigger=Software Start`、`Sampling Time=92.5 cycles`。
+- 2026-03-13：当前工程已经回到 `ADC1 DMA` 配置，备选 `polling fallback` 保留在代码中，主要用于后续若再遇到 `HAL_ADC_Start_DMA()` 异常时快速切换和验证。
+
+##### Phase 2 最终结论
+
+- 2026-03-13：`VBUS` 链路验证通过。根据原理图 `POWER -> 24k+1k 分压 -> LMV358 跟随 -> PA3/ADC1_CH4` 的关系，代码已按 `POWER = VBUS_pin * 25` 修正；实测当母线设置为约 `20V` 时，串口打印约 `19.5V`，结果基本一致。
+- 2026-03-13：`TEMP` 链路验证通过。根据 `10k NTC (NCP18XH103F03RB) + 4.7k` 分压网络和 LMV358 跟随关系，修正温度反推公式后，常温打印约 `23.8C~24.1C`，与室温一致。
+- 2026-03-13：`ADC2 Injected` 三相电流同步采样验证通过。当前 `IU/IV/IW` 有稳定零点附近数值，`Jupd` 持续递增，说明 `TIM1 -> OC4REF/TRGO -> ADC2 Injected` 触发链路工作正常。
+- 2026-03-13：因此 `Phase2` 的主要目标已经完成：`VBUS`、`TEMP`、`IU/IV/IW`、`Jupd` 均已具备有效观测结果，可进入下一阶段。
+- 2026-03-13：唯一遗留事项是 `ADC1` 当前仍采用 `polling fallback` 而非原计划的 `DMA` 正式方案；这不影响 `Phase2` 通过，但建议在后续进入长期运行前再回头修复。
+- 2026-03-13：最终收尾确认：当前启动打印已明确显示 `ADC1 mode=dma`，运行期 `VBUS=(19.54V~19.56V)`、`TEMP=(23.95C)`、`IU/IV/IW` 稳定、`Jupd` 持续递增、`Break=0`，说明 `ADC1 DMA` 正式方案也已恢复通过。
+- 2026-03-13：基于上述结果，`Phase2` 现已不仅完成链路验证，而且实现形式也回到原计划的正式方案；此前关于 `ADC1 polling fallback` 的说明，现阶段应视为“保留在代码中的备选方案”，而不是当前默认运行方式。
+
+##### 分阶段调试打印方法
+
+- 2026-03-13：从 `Phase2` 开始，调试入口统一采用“粗粒度入口打印 + 细粒度步骤打印 + 明确错误码”的方式定位阻塞点。
+- 2026-03-13：粗粒度入口打印用于确认程序是否进入本阶段，例如 `[P2] Boot`、`[P2] ADC init start`。
+- 2026-03-13：细粒度步骤打印用于确认具体卡在哪个 HAL/驱动调用前后，例如 `[P2][ADC] before cal adc1`、`[P2][ADC] after cal adc1`。
+- 2026-03-13：错误路径应返回明确状态码并立刻打印，例如 `ADC init failed, code=x`，避免直接卡死进 `Error_Handler()` 后无输出。
+- 2026-03-13：后续 `Phase3`、`Phase4`、`Phase5` 也建议沿用同一方法，例如为 Hall 初始化、换相初始化、启动流程、保护检测分别加 `before/after` 调试点。
+- 2026-03-13：文档记录规则采用追加制，不删除旧结论；每次只新增“日期 + 现象 + 新判断 + 后续动作”。
+- 2026-03-13：本次 `Phase2` 实测打印停在 `[P2][ADC] before start dma adc1`，说明程序已顺利通过 `ADC1/ADC2` 校准，当前新的可疑点集中到 `HAL_ADC_Start_DMA(&hadc1, ...)`。
+- 2026-03-13：针对该现象，已临时去掉冷启动阶段的 `HAL_ADC_Stop_DMA()` / `HAL_ADCEx_InjectedStop_IT()` / `HAL_ADC_Stop()` 停止序列，优先验证 `ADC1 DMA` 启动本身是否仍会阻塞。
+- 2026-03-13：在进一步定位中，已增加 `ADC1` 的“非 DMA 单次启动/停止”探针步骤：若能打印到 `after start adc1 no dma` 和 `after stop adc1 no dma`，则说明 `ADC1` 内核本身可启动，问题更偏向 `HAL_ADC_Start_DMA()` 或 DMA 链路；若卡在更早位置，则问题更偏向 `ADC1` 常规启动状态机本身。
+- 2026-03-13：本次实测已确认 `ADC1` “非 DMA 启动/停止”正常，而程序持续卡在 `HAL_ADC_Start_DMA()` 前后，因此当前阶段已临时改为 `ADC1` 规则组轮询刷新方案，先保证 `Phase2` 的 `VBUS/TEMP` 验证能够继续推进；`ADC1 DMA` 问题单独保留为后续定位项。
+- 2026-03-13：进入 `Phase4` 前，换相表验证必须采用低风险方式推进：先限压、限流，不要一上来全母线硬推；先做单次状态映射检查，不要直接长时间闭环跑；一旦发现电机只抖不转、声音发闷、电流异常，先停机并优先怀疑换相表；换相表应设计为可快速调整，不要一开始就把某张理论表当成绝对正确。
 
 #### Phase 3：加 Hall 采样与测速
 
