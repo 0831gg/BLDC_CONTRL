@@ -116,7 +116,7 @@
 - 当前情况：`main.c` 现在只跑 `test_phase0`
 - 建议修改：后续新增 `test_phase1` 作为独立入口，不要直接把 PWM、电流采样、Hall、换相逻辑一起挂进主循环
 - 原因：分阶段验证可以把问题范围压缩在单一模块，避免多个驱动同时引入后难以定位错误
-- 当前复查结果：未满足。`main.c` 还是只调用 `Test_Phase0_Init()` 和 `Test_Phase0_Loop()`，说明还没有独立的 `test_phase1`/PWM 验证入口。
+- 当前复查结果：已满足。`main.c` 已切换为独立的 `Test_Phase1_Init()` 和 `Test_Phase1_Loop()` 入口，`Phase1` 已可单独完成 PWM / Enable / 下桥输出验证。
 
 #### 10. ADC1 规则通道数量是否需要补第三路
 
@@ -444,6 +444,24 @@ void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
 | `Step4` | 禁止驱动，仅下桥 `UN/WN` 输出有效 |
 | `Step5` | 禁止驱动，PWM=0，下桥全关 |
 
+对应到当前板级引脚，`test_phase1` 每个 Step 的功率输出状态如下：
+
+| Step | `PC13` 驱动使能 | `PA8 / TIM1_CH1` | `PA9 / TIM1_CH2` | `PA10 / TIM1_CH3` | `PB13 / UN` | `PB14 / VN` | `PB15 / WN` |
+|------|------------------|------------------|------------------|-------------------|--------------|--------------|--------------|
+| `Step0` | 低，驱动禁止 | 无 PWM | 无 PWM | 无 PWM | 低，关闭 | 低，关闭 | 低，关闭 |
+| `Step1` | 高，驱动使能 | 无 PWM | 无 PWM | 无 PWM | 低，关闭 | 低，关闭 | 低，关闭 |
+| `Step2` | 高，驱动使能 | 50% PWM，10kHz | 50% PWM，10kHz | 50% PWM，10kHz | 低，关闭 | 低，关闭 | 低，关闭 |
+| `Step3` | 高，驱动使能 | 50% PWM，10kHz | 无 PWM | 无 PWM | 低，关闭 | 低，关闭 | 低，关闭 |
+| `Step4` | 高，驱动使能 | 无 PWM | 无 PWM | 无 PWM | 高，导通 | 低，关闭 | 高，导通 |
+| `Step5` | 低，驱动禁止 | 无 PWM | 无 PWM | 无 PWM | 低，关闭 | 低，关闭 | 低，关闭 |
+
+补充说明：
+
+- 上桥 PWM 输出引脚固定为 `PA8/PA9/PA10`，分别对应 `TIM1_CH1/CH2/CH3`。
+- 下桥数字控制引脚固定为 `PB13/PB14/PB15`，分别对应 `UN/VN/WN`。
+- Break 输入为 `PB12 / TIM1_BKIN`，当前按低电平故障触发配置，不属于 Step 主动输出引脚，但会直接切断 PWM。
+- `Step4` 代码实际调用的是 `bsp_pwm_lower_set(1U, 0U, 1U)`，所以当前只有 `PB13` 和 `PB15` 拉高，`PB14` 保持低电平。
+
 当前代码中的 LED 规则如下：
 
 | Step | 当前 LED 行为 |
@@ -461,6 +479,16 @@ void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
 - `User/Test/Src/test_phase1.c`
 - `User/Bsp/Src/bsp_ctrl_sd.c`
 - `User/Bsp/Src/bsp_pwm.c`
+
+###### `Phase1` 完成情况
+
+当前 `Phase1` 已完成，并已通过板级静态输出验证。
+
+- `Step1` 到 `Step5` 的引脚行为与代码设计一致。
+- `PA8 / TIM1_CH1`、`PA9 / TIM1_CH2`、`PA10 / TIM1_CH3` 的 PWM 波形已通过示波器确认正确。
+- `PC13` 驱动使能、`PB13/PB14/PB15` 下桥控制、`PB12 / TIM1_BKIN` 低电平 Break 保护链路当前配置与测试目标一致。
+- 这说明 `TIM1` PWM 输出、驱动使能控制、下桥 GPIO 控制、Phase1 的 Step 切换逻辑都已经打通。
+- 因此当前项目状态可以从 `Phase1` 进入下一阶段，后续重点应转向 `Phase2` 的 ADC 采样链路验证。
 
 ##### Phase 1 HAL 替换说明
 
@@ -821,14 +849,19 @@ void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
 
 ##### 5.1 `Step0` ~ `Step5` LED 对应规则
 
-| Step | LED0 | LED1 | 说明 |
-|------|------|------|------|
-| `Step0` | 灭 | 灭 | 默认安全态，驱动禁止 |
-| `Step1` | 亮 | 灭 | 仅使能驱动 |
-| `Step2` | 灭 | 亮 | 三相 PWM 同时输出 |
-| `Step3` | 亮 | 亮 | 仅 U 相 PWM 输出 |
-| `Step4` | 闪烁 | 灭 | 下桥逻辑测试 |
-| `Step5` | 灭 | 闪烁 | 全关闭安全退出态 |
+- 板载 LED 引脚对应关系：
+  - `LED0 -> PE0`
+  - `LED1 -> PE1`
+- 当前 LED 为低电平点亮、高电平熄灭。
+
+| Step | LED0 | LED1 | 对应引脚状态 | 说明 |
+|------|------|------|--------------|------|
+| `Step0` | 灭 | 灭 | `PE0=高`，`PE1=高` | 默认安全态，驱动禁止 |
+| `Step1` | 亮 | 灭 | `PE0=低`，`PE1=高` | 仅使能驱动 |
+| `Step2` | 灭 | 亮 | `PE0=高`，`PE1=低` | 三相 PWM 同时输出 |
+| `Step3` | 亮 | 亮 | `PE0=低`，`PE1=低` | 仅 U 相 PWM 输出 |
+| `Step4` | 闪烁 | 灭 | `PE0` 以 `200ms` 周期高低翻转，`PE1=高` | 下桥逻辑测试 |
+| `Step5` | 灭 | 闪烁 | `PE0=高`，`PE1` 以 `200ms` 周期高低翻转 | 全关闭安全退出态 |
 
 ##### 5.2 `Step0` 和 `Step5` 的区别
 
