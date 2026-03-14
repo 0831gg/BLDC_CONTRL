@@ -2,6 +2,8 @@
 
 #include "tim.h"
 
+extern void motor_sensor_mode_phase(void);
+
 #define BSP_HALL_TIM5_TICK_HZ              (50000UL)
 #define BSP_HALL_TRANSITIONS_PER_REV       (6UL)
 #define BSP_HALL_ERROR_TIM5_START          (1U)
@@ -21,7 +23,7 @@ static uint8_t bsp_hall_sample_state(void)
     uint8_t state = 0U;
 
     if (HAL_GPIO_ReadPin(HALL_U_GPIO_Port, HALL_U_Pin) == GPIO_PIN_SET) {
-        state |= 0x04U;
+        state |= 0x01U;
     }
 
     if (HAL_GPIO_ReadPin(HALL_V_GPIO_Port, HALL_V_Pin) == GPIO_PIN_SET) {
@@ -29,7 +31,7 @@ static uint8_t bsp_hall_sample_state(void)
     }
 
     if (HAL_GPIO_ReadPin(HALL_W_GPIO_Port, HALL_W_Pin) == GPIO_PIN_SET) {
-        state |= 0x01U;
+        state |= 0x04U;
     }
 
     return state;
@@ -48,12 +50,12 @@ static uint8_t bsp_hall_is_valid_state(uint8_t state)
 static uint8_t bsp_hall_get_next_state(uint8_t state)
 {
     switch (state) {
-        case 0x01U: return 0x05U;
-        case 0x05U: return 0x04U;
-        case 0x04U: return 0x06U;
-        case 0x06U: return 0x02U;
-        case 0x02U: return 0x03U;
-        case 0x03U: return 0x01U;
+        case 0x06U: return 0x04U;
+        case 0x04U: return 0x05U;
+        case 0x05U: return 0x01U;
+        case 0x01U: return 0x03U;
+        case 0x03U: return 0x02U;
+        case 0x02U: return 0x06U;
         default:    return 0x00U;
     }
 }
@@ -61,12 +63,12 @@ static uint8_t bsp_hall_get_next_state(uint8_t state)
 static uint8_t bsp_hall_get_prev_state(uint8_t state)
 {
     switch (state) {
-        case 0x01U: return 0x03U;
-        case 0x05U: return 0x01U;
-        case 0x04U: return 0x05U;
-        case 0x06U: return 0x04U;
-        case 0x02U: return 0x06U;
-        case 0x03U: return 0x02U;
+        case 0x06U: return 0x02U;
+        case 0x02U: return 0x03U;
+        case 0x03U: return 0x01U;
+        case 0x01U: return 0x05U;
+        case 0x05U: return 0x04U;
+        case 0x04U: return 0x06U;
         default:    return 0x00U;
     }
 }
@@ -226,6 +228,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         s_last_period_ticks = now - s_last_commutation_time;
         s_last_commutation_time = now;
         s_valid_transition_count++;
+        motor_sensor_mode_phase();
     } else {
         s_direction = BSP_HALL_DIR_UNKNOWN;
         s_invalid_transition_count++;

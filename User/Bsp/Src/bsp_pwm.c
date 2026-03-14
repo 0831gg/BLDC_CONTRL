@@ -96,6 +96,13 @@ void bsp_pwm_clear_break_fault(void)
     s_break_fault = 0U;
 }
 
+void bsp_pwm_disable_break(void)
+{
+    __HAL_TIM_DISABLE_IT(&htim1, TIM_IT_BREAK);
+    TIM1->BDTR &= ~TIM_BDTR_BKE;
+    __HAL_TIM_MOE_ENABLE(&htim1);
+}
+
 void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM1) {
