@@ -33,6 +33,7 @@ void bsp_pwm_lower_set(uint8_t un, uint8_t vn, uint8_t wn);
 void bsp_pwm_lower_all_off(void);
 uint8_t bsp_pwm_is_break_fault(void);
 void bsp_pwm_clear_break_fault(void);
+void bsp_pwm_disable_break(void);
 
 #ifdef __cplusplus
 }
