@@ -21,7 +21,15 @@ void bsp_pwm_init(void)
 
     bsp_pwm_duty_set(0U);
     bsp_pwm_lower_all_off();
-    bsp_pwm_all_close();
+
+    /* 阶段2：PWM始终开启 */
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+    __HAL_TIM_MOE_ENABLE(&htim1);
+
+    /* 阶段3：启动TIM1更新中断用于霍尔轮询 */
+    HAL_TIM_Base_Start_IT(&htim1);
 }
 
 void bsp_pwm_duty_set(uint16_t duty)
@@ -40,17 +48,13 @@ uint16_t bsp_pwm_duty_get(void)
 
 void bsp_pwm_all_open(void)
 {
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+    /* 阶段2：PWM已在init中启动，只需确保MOE使能 */
     __HAL_TIM_MOE_ENABLE(&htim1);
 }
 
 void bsp_pwm_all_close(void)
 {
-    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
-    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
+    /* 阶段2：不停止PWM，只禁用通道输出 */
     bsp_pwm_disable_all_channels();
 }
 

@@ -16,10 +16,10 @@
 #define TEST_PHASE5_PRINT_INTERVAL_MS     (800U)
 #define TEST_PHASE5_TRIGGER_CCR4          (BSP_PWM_PERIOD / 2U)
 
-#define TEST_PHASE5_DUTY_1                ((BSP_PWM_PERIOD + 1U) * 20U / 100U)
-#define TEST_PHASE5_DUTY_2                ((BSP_PWM_PERIOD + 1U) * 25U / 100U)
-#define TEST_PHASE5_DUTY_3                ((BSP_PWM_PERIOD + 1U) * 30U / 100U)
-#define TEST_PHASE5_DUTY_4                ((BSP_PWM_PERIOD + 1U) * 35U / 100U)
+#define TEST_PHASE5_DUTY_1                ((BSP_PWM_PERIOD + 1U) * 5U / 100U)
+#define TEST_PHASE5_DUTY_2                ((BSP_PWM_PERIOD + 1U) * 10U / 100U)
+#define TEST_PHASE5_DUTY_3                ((BSP_PWM_PERIOD + 1U) * 15U / 100U)
+#define TEST_PHASE5_DUTY_4                ((BSP_PWM_PERIOD + 1U) * 20U / 100U)
 
 static const uint16_t s_duty_table[] = {
     TEST_PHASE5_DUTY_1,
@@ -121,7 +121,7 @@ static void test_phase5_start_motor(void)
                     (unsigned int)((bsp_hall_get_state() >> 1) & 0x01U),
                     (unsigned int)(bsp_hall_get_state() & 0x01U));
 
-    if (motor_start_assisted(s_duty_table[s_duty_index], motor_ctrl_get_direction()) == 0) {
+    if (motor_start_simple(s_duty_table[s_duty_index], motor_ctrl_get_direction()) == 0) {
         uint16_t motor_duty_percent = (motor_ctrl_get_duty() * 100U) / (BSP_PWM_PERIOD + 1U);
         test_phase5_print_assist_trace();
         BSP_UART_Printf("[P5] Motor start dir=%s duty=%u%% off=%u action=%s sd=%u\r\n",
