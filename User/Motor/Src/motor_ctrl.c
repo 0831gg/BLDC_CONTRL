@@ -55,7 +55,6 @@ static void motor_ctrl_prepare_start(uint16_t duty, uint8_t direction)
     s_motor_duty = duty;
 
     bsp_hall_clear_stats();
-    // bsp_hall_irq_disable();  // 不再使用EXTI中断
     bsp_ctrl_sd_disable();
     bsp_pwm_clear_break_fault();
     bsp_pwm_lower_all_off();
@@ -154,7 +153,6 @@ void motor_ctrl_init(void)
     bsp_pwm_lower_all_off();
     bsp_pwm_all_close();
     bsp_ctrl_sd_disable();
-    // bsp_hall_irq_enable();  // 不再使用EXTI中断
 }
 
 int motor_start(uint16_t duty, uint8_t direction)
@@ -171,7 +169,6 @@ int motor_start(uint16_t duty, uint8_t direction)
     }
 
     bsp_ctrl_sd_enable();
-    // bsp_hall_irq_enable();  // 不再使用EXTI中断
     return 0;
 }
 
@@ -250,7 +247,6 @@ int motor_start_assisted(uint16_t duty, uint8_t direction)
         return -1;
     }
 
-    // bsp_hall_irq_enable();  // 不再使用EXTI中断
     start_tick = HAL_GetTick();
 
     while ((HAL_GetTick() - start_tick) < MOTOR_START_ASSIST_TIMEOUT_MS) {
@@ -305,7 +301,6 @@ int motor_start_simple(uint16_t duty, uint8_t direction)
     }
 
     bsp_ctrl_sd_enable();
-    // bsp_hall_irq_enable();  // 不再使用EXTI中断
 
     return 0;
 }
@@ -317,7 +312,6 @@ void motor_stop(void)
     bsp_pwm_all_close();
     s_motor_running = 0U;
     s_last_action = MOTOR_PHASE_ACTION_INVALID;
-    // bsp_hall_irq_enable();  // 不再使用EXTI中断
 }
 
 void motor_sensor_mode_phase(void)
