@@ -193,55 +193,6 @@ void bsp_hall_irq_disable(void)
     s_irq_enabled = 0U;
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-    // EXTI中断已禁用，改用定时器轮询
-    // 保留此函数以防万一，但不再使用
-    /*
-    uint8_t new_state;
-    uint8_t old_state;
-    uint32_t now;
-
-    if ((GPIO_Pin != HALL_U_Pin) &&
-        (GPIO_Pin != HALL_V_Pin) &&
-        (GPIO_Pin != HALL_W_Pin)) {
-        return;
-    }
-
-    new_state = bsp_hall_sample_state();
-    old_state = s_hall_state;
-
-    if (new_state == old_state) {
-        return;
-    }
-
-    s_edge_count++;
-    s_hall_last_state = old_state;
-    s_hall_state = new_state;
-
-    if (bsp_hall_is_valid_state(old_state) && bsp_hall_is_valid_state(new_state)) {
-        if (bsp_hall_get_next_state(old_state) == new_state) {
-            s_direction = BSP_HALL_DIR_CCW;
-        } else if (bsp_hall_get_prev_state(old_state) == new_state) {
-            s_direction = BSP_HALL_DIR_CW;
-        } else {
-            s_direction = BSP_HALL_DIR_UNKNOWN;
-            s_invalid_transition_count++;
-            return;
-        }
-
-        now = __HAL_TIM_GET_COUNTER(&htim5);
-        s_last_period_ticks = now - s_last_commutation_time;
-        s_last_commutation_time = now;
-        s_valid_transition_count++;
-        motor_sensor_mode_phase();
-    } else {
-        s_direction = BSP_HALL_DIR_UNKNOWN;
-        s_invalid_transition_count++;
-    }
-    */
-}
-
 void bsp_hall_poll_and_commutate(void)
 {
     uint8_t new_state;
