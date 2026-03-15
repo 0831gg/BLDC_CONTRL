@@ -137,8 +137,12 @@ my_control/
 │   └── Test/                 # 测试代码
 │       └── Src/
 │           └── test_phase5.c # Phase5测试（最终版本）
-├── motor_refactor_plan.md    # 三阶段改造方案
-├── motorrun1.md              # 参考实现分析文档
+├── docs/                     # 项目文档
+│   ├── motor_refactor_plan.md    # 三阶段改造方案
+│   ├── motorrun1.md              # 参考实现分析
+│   ├── git_deep_cleanup_report.md # Git清理报告
+│   ├── md_files_review.md        # 文档检查报告
+│   └── experiment9_1_vs_9_3_diff.md # 参考工程对比
 └── README.md                 # 本文件
 ```
 
@@ -169,8 +173,9 @@ Fault=0 Edge=14 Valid=14 Invalid=0 RPM=359 Break=0 VBUS=11.6V
 
 ## 参考资料
 
-- [motor_refactor_plan.md](motor_refactor_plan.md) - 三阶段改造详细方案
-- [motorrun1.md](motorrun1.md) - 正点原子参考实现分析
+- [docs/motor_refactor_plan.md](docs/motor_refactor_plan.md) - 三阶段改造详细方案
+- [docs/motorrun1.md](docs/motorrun1.md) - 正点原子参考实现分析
+- [docs/git_deep_cleanup_report.md](docs/git_deep_cleanup_report.md) - Git仓库优化记录
 - 正点原子BLDC基础驱动源码
 
 ---
