@@ -1,3 +1,6 @@
+# STM32 HAL库和CMSIS（由CubeMX生成，不应提交）
+Drivers/
+
 # Keil MDK 编译输出
 MDK-ARM/BLDC_HALL/
 MDK-ARM/*.uvguix.*
