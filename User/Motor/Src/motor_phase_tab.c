@@ -7,11 +7,11 @@ static motor_phase_action_t s_phase_table[2][8];
 static uint8_t s_commutation_offset = 0U;
 
 static const uint8_t s_hall_sequence_cw[6] = {
-    0x06U, 0x02U, 0x03U, 0x01U, 0x05U, 0x04U
+    0x01U, 0x02U, 0x03U, 0x04U, 0x05U, 0x06U  // 参考实现：1→2→3→4→5→6
 };
 
 static const uint8_t s_hall_sequence_ccw[6] = {
-    0x06U, 0x04U, 0x05U, 0x01U, 0x03U, 0x02U
+    0x06U, 0x05U, 0x04U, 0x03U, 0x02U, 0x01U  // 参考实现：6→5→4→3→2→1 (7-CW)
 };
 
 static uint8_t motor_phase_dir_index(uint8_t direction)
@@ -28,26 +28,28 @@ void motor_phase_tab_init_defaults(void)
 {
     uint8_t i;
 
-    s_commutation_offset = 2U;
+    s_commutation_offset = 0U;  // 先禁用offset，使用直接换相
 
     for (i = 0U; i < 8U; i++) {
         s_phase_table[0][i] = MOTOR_PHASE_ACTION_INVALID;
         s_phase_table[1][i] = MOTOR_PHASE_ACTION_INVALID;
     }
 
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x06U] = MOTOR_PHASE_ACTION_UP_WN;  // Hall 6 → U+W-
+    // CW换相表（参考实现）
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x01U] = MOTOR_PHASE_ACTION_UP_WN;  // Hall 1 → U+W-
     s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x02U] = MOTOR_PHASE_ACTION_VP_UN;  // Hall 2 → V+U-
     s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x03U] = MOTOR_PHASE_ACTION_VP_WN;  // Hall 3 → V+W-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x01U] = MOTOR_PHASE_ACTION_WP_VN;  // Hall 1 → W+V-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x04U] = MOTOR_PHASE_ACTION_WP_VN;  // Hall 4 → W+V-
     s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x05U] = MOTOR_PHASE_ACTION_UP_VN;  // Hall 5 → U+V-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x04U] = MOTOR_PHASE_ACTION_WP_UN;  // Hall 4 → W+U-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CW)][0x06U] = MOTOR_PHASE_ACTION_WP_UN;  // Hall 6 → W+U-
 
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x06U] = MOTOR_PHASE_ACTION_VP_UN;  // Hall 6 → V+U-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x04U] = MOTOR_PHASE_ACTION_UP_WN;  // Hall 4 → U+W-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x05U] = MOTOR_PHASE_ACTION_UP_VN;  // Hall 5 → U+V-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x01U] = MOTOR_PHASE_ACTION_WP_VN;  // Hall 1 → W+V-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x03U] = MOTOR_PHASE_ACTION_VP_WN;  // Hall 3 → V+W-
-    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x02U] = MOTOR_PHASE_ACTION_VP_UN;  // Hall 2 → V+U-
+    // CCW换相表（7-hall反转，参考实现）
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x06U] = MOTOR_PHASE_ACTION_UP_WN;  // Hall 6 (7-1) → U+W-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x05U] = MOTOR_PHASE_ACTION_VP_UN;  // Hall 5 (7-2) → V+U-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x04U] = MOTOR_PHASE_ACTION_VP_WN;  // Hall 4 (7-3) → V+W-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x03U] = MOTOR_PHASE_ACTION_WP_VN;  // Hall 3 (7-4) → W+V-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x02U] = MOTOR_PHASE_ACTION_UP_VN;  // Hall 2 (7-5) → U+V-
+    s_phase_table[motor_phase_dir_index(MOTOR_DIR_CCW)][0x01U] = MOTOR_PHASE_ACTION_WP_UN;  // Hall 1 (7-6) → W+U-
 }
 
 void motor_phase_tab_set(uint8_t direction, uint8_t hall_state, motor_phase_action_t action)

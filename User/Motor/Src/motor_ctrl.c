@@ -8,9 +8,9 @@
 #define MOTOR_START_PREPARE_DELAY_MS    (2U)
 #define MOTOR_START_ALIGN_DELAY_MS      (80U)
 #define MOTOR_START_ASSIST_TIMEOUT_MS   (300U)
-#define MOTOR_START_ASSIST_DUTY_STEP1   (((BSP_PWM_PERIOD + 1U) * 15U) / 100U)
-#define MOTOR_START_ASSIST_DUTY_STEP2   (((BSP_PWM_PERIOD + 1U) * 18U) / 100U)
-#define MOTOR_START_ASSIST_DUTY_STEP3   (((BSP_PWM_PERIOD + 1U) * 20U) / 100U)
+#define MOTOR_START_ASSIST_DUTY_STEP1   (((BSP_PWM_PERIOD + 1U) * 5U) / 100U)
+#define MOTOR_START_ASSIST_DUTY_STEP2   (((BSP_PWM_PERIOD + 1U) * 8U) / 100U)
+#define MOTOR_START_ASSIST_DUTY_STEP3   (((BSP_PWM_PERIOD + 1U) * 10U) / 100U)
 
 static const uint8_t s_start_assist_step_delay_ms[] = {20U, 16U, 14U, 12U, 10U, 8U};
 
@@ -55,13 +55,12 @@ static void motor_ctrl_prepare_start(uint16_t duty, uint8_t direction)
     s_motor_duty = duty;
 
     bsp_hall_clear_stats();
-    bsp_hall_irq_disable();
+    // bsp_hall_irq_disable();  // 不再使用EXTI中断
     bsp_ctrl_sd_disable();
     bsp_pwm_clear_break_fault();
     bsp_pwm_lower_all_off();
-    bsp_pwm_all_close();
+    /* 阶段2：删除bsp_pwm_all_close()和bsp_pwm_all_open()，PWM保持运行 */
     bsp_pwm_duty_set(s_motor_duty);
-    bsp_pwm_all_open();
     s_motor_running = 1U;
     motor_ctrl_set_startup_trace(MOTOR_STARTUP_STAGE_PREPARE,
                                  0U,
@@ -155,7 +154,7 @@ void motor_ctrl_init(void)
     bsp_pwm_lower_all_off();
     bsp_pwm_all_close();
     bsp_ctrl_sd_disable();
-    bsp_hall_irq_enable();
+    // bsp_hall_irq_enable();  // 不再使用EXTI中断
 }
 
 int motor_start(uint16_t duty, uint8_t direction)
@@ -172,7 +171,7 @@ int motor_start(uint16_t duty, uint8_t direction)
     }
 
     bsp_ctrl_sd_enable();
-    bsp_hall_irq_enable();
+    // bsp_hall_irq_enable();  // 不再使用EXTI中断
     return 0;
 }
 
@@ -251,7 +250,7 @@ int motor_start_assisted(uint16_t duty, uint8_t direction)
         return -1;
     }
 
-    bsp_hall_irq_enable();
+    // bsp_hall_irq_enable();  // 不再使用EXTI中断
     start_tick = HAL_GetTick();
 
     while ((HAL_GetTick() - start_tick) < MOTOR_START_ASSIST_TIMEOUT_MS) {
@@ -281,6 +280,36 @@ int motor_start_assisted(uint16_t duty, uint8_t direction)
     return -1;
 }
 
+int motor_start_simple(uint16_t duty, uint8_t direction)
+{
+    s_motor_fault = MOTOR_FAULT_NONE;
+    s_motor_direction = direction;
+    s_motor_duty = duty;
+
+    bsp_hall_clear_stats();
+    bsp_pwm_clear_break_fault();
+    bsp_pwm_duty_set(s_motor_duty);
+
+    s_motor_running = 1U;
+    motor_ctrl_set_startup_trace(MOTOR_STARTUP_STAGE_TRACKING,
+                                 0U,
+                                 bsp_hall_get_state(),
+                                 MOTOR_PHASE_ACTION_INVALID,
+                                 s_motor_duty);
+
+    motor_sensor_mode_phase();
+
+    if (s_motor_fault != MOTOR_FAULT_NONE) {
+        motor_stop();
+        return -1;
+    }
+
+    bsp_ctrl_sd_enable();
+    // bsp_hall_irq_enable();  // 不再使用EXTI中断
+
+    return 0;
+}
+
 void motor_stop(void)
 {
     bsp_ctrl_sd_disable();
@@ -288,7 +317,7 @@ void motor_stop(void)
     bsp_pwm_all_close();
     s_motor_running = 0U;
     s_last_action = MOTOR_PHASE_ACTION_INVALID;
-    bsp_hall_irq_enable();
+    // bsp_hall_irq_enable();  // 不再使用EXTI中断
 }
 
 void motor_sensor_mode_phase(void)

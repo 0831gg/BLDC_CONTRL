@@ -31,6 +31,7 @@ uint8_t bsp_hall_is_irq_enabled(void);
 void bsp_hall_clear_stats(void);
 void bsp_hall_irq_enable(void);
 void bsp_hall_irq_disable(void);
+void bsp_hall_poll_and_commutate(void);
 
 #ifdef __cplusplus
 }
