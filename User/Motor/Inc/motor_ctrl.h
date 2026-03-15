@@ -24,6 +24,7 @@ extern "C" {
 void motor_ctrl_init(void);
 int motor_start(uint16_t duty, uint8_t direction);
 int motor_start_assisted(uint16_t duty, uint8_t direction);
+int motor_start_simple(uint16_t duty, uint8_t direction);
 void motor_stop(void);
 void motor_sensor_mode_phase(void);
 void motor_ctrl_set_fault(uint8_t fault);
