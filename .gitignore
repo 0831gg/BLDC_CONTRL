@@ -1,7 +1,7 @@
 # Keil MDK 编译输出
 MDK-ARM/BLDC_HALL/
 MDK-ARM/*.uvguix.*
-MDK-ARM/.vscode/uv4.log
+MDK-ARM/.vscode/
 
 # ARM 编译中间文件
 *.o
@@ -19,6 +19,20 @@ MDK-ARM/.vscode/uv4.log
 *.sbr
 *.htm
 
+# Keil用户选项（个人配置）
+*.uvoptx
+*.uvguix
+
+# J-Link调试文件
+*.ini
+JLinkLog.txt
+JLinkSettings.ini
+
+# 编译和烧录日志
+*.log
+build.log
+flash.log
+
 # 调试配置（机器相关）
 MDK-ARM/DebugConfig/
 
@@ -26,4 +40,9 @@ MDK-ARM/DebugConfig/
 .mxproject
 
 # VS Code 插件缓存
-MDK-ARM/.vscode/
+.vscode/
+
+# 临时文件
+*~
+*.tmp
+*.bak
