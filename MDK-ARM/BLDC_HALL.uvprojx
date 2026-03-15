@@ -692,74 +692,14 @@
           <GroupName>User/Test</GroupName>
           <Files>
             <File>
-              <FileName>test.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test.h</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase4.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test_phase4.h</FilePath>
-            </File>
-            <File>
               <FileName>test_phase5.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\User\Test\Inc\test_phase5.h</FilePath>
             </File>
             <File>
-              <FileName>test_phase2.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test_phase2.h</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase3.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test_phase3.h</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase0.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test_phase0.h</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase1.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User\Test\Inc\test_phase1.h</FilePath>
-            </File>
-            <File>
-              <FileName>test.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test.c</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase2.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test_phase2.c</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase4.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test_phase4.c</FilePath>
-            </File>
-            <File>
               <FileName>test_phase5.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\Test\Src\test_phase5.c</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase3.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test_phase3.c</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase0.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test_phase0.c</FilePath>
-            </File>
-            <File>
-              <FileName>test_phase1.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Test\Src\test_phase1.c</FilePath>
             </File>
           </Files>
         </Group>
