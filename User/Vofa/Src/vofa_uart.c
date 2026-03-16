@@ -47,25 +47,47 @@ void VOFA_FireWaterFloat(float* data, uint8_t ch_count)
 {
     int offset = 0, ret;
     uint8_t i;
+    int remaining;
 
     if (!vofa_initialized || data == NULL || ch_count == 0) return;
 
     for (i = 0; i < ch_count; i++) {
-        if (i > 0) {
-            ret = snprintf((char*)tx_buf + offset,
-                           VOFA_TX_BUF_SIZE - (uint16_t)offset, ", ");
-            if (ret > 0) offset += ret;
+        remaining = (int)VOFA_TX_BUF_SIZE - offset;
+
+        /* 检查剩余空间是否足够（至少需要20字节：", " + "%.4f" + "\n"） */
+        if (remaining < 20) {
+            break;  /* 空间不足，停止添加 */
         }
-        ret = snprintf((char*)tx_buf + offset,
-                       VOFA_TX_BUF_SIZE - (uint16_t)offset, "%.4f", data[i]);
-        if (ret > 0) offset += ret;
+
+        if (i > 0) {
+            ret = snprintf((char*)tx_buf + offset, (size_t)remaining, ", ");
+            if (ret > 0 && ret < remaining) {
+                offset += ret;
+            } else {
+                break;  /* snprintf失败或截断 */
+            }
+        }
+
+        remaining = (int)VOFA_TX_BUF_SIZE - offset;
+        ret = snprintf((char*)tx_buf + offset, (size_t)remaining, "%.4f", data[i]);
+        if (ret > 0 && ret < remaining) {
+            offset += ret;
+        } else {
+            break;  /* snprintf失败或截断 */
+        }
     }
 
-    ret = snprintf((char*)tx_buf + offset,
-                   VOFA_TX_BUF_SIZE - (uint16_t)offset, "\n");
-    if (ret > 0) offset += ret;
+    remaining = (int)VOFA_TX_BUF_SIZE - offset;
+    if (remaining >= 2) {
+        ret = snprintf((char*)tx_buf + offset, (size_t)remaining, "\n");
+        if (ret > 0 && ret < remaining) {
+            offset += ret;
+        }
+    }
 
-    VOFA_Port_SendData(tx_buf, (uint16_t)offset);
+    if (offset > 0) {
+        VOFA_Port_SendData(tx_buf, (uint16_t)offset);
+    }
 }
 
 void VOFA_SendRaw(const uint8_t* data, uint16_t len)

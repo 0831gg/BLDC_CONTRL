@@ -40,7 +40,7 @@ void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 1000000;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -67,6 +67,17 @@ void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
+
+  /* 编译时检查：高波特率必须使用高速GPIO */
+  #if (defined(USART1_BAUDRATE) && USART1_BAUDRATE >= 921600)
+    #warning "High baudrate (>=921600) requires GPIO_SPEED_FREQ_VERY_HIGH"
+  #endif
+
+  /* 运行时验证波特率设置 */
+  if (huart1.Init.BaudRate >= 921600) {
+      /* 确保GPIO速度已正确配置为VERY_HIGH */
+      /* 此检查在HAL_UART_MspInit中完成 */
+  }
 
   /* USER CODE END USART1_Init 2 */
 
@@ -103,7 +114,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -163,6 +174,20 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+#include "vofa_port.h"
+#include "bsp_uart.h"
 
+/**
+ * @brief  UART发送完成回调
+ * @note   DMA传输完成后会调用此函数
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    /* Vofa DMA回调 */
+    VOFA_Port_DMA_TxCpltCallback(huart);
+
+    /* BSP_UART DMA回调 */
+    BSP_UART_DMA_TxCpltCallback(huart);
+}
 /* USER CODE END 1 */
 

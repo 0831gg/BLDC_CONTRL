@@ -26,7 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "test_phase5.h"
+#include "test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,7 +97,7 @@ int main(void)
   MX_ADC2_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-  Test_Phase5_Init();
+  Test_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,7 +107,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-   Test_Phase5_Loop();
+   Test_Loop();
   }
   /* USER CODE END 3 */
 }
