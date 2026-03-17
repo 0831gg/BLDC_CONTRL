@@ -12,6 +12,9 @@
 #include "bsp_delay.h"
 #include "bsp_hall.h"
 #include "bsp_pwm.h"
+#include "pid.h"
+
+#include <math.h>
 
 /*============================================================================
  * 私有常量定义
@@ -76,6 +79,20 @@ static uint8_t s_startup_hall_state = 0U;
 static motor_phase_action_t s_startup_action = MOTOR_PHASE_ACTION_INVALID;
 /** @brief 启动时占空比 */
 static uint16_t s_startup_duty = 0U;
+
+/** @brief 速度环PID实例 */
+static speed_pid_t s_speed_pid;
+/** @brief 控制模式 */
+static uint8_t s_control_mode = MOTOR_MODE_OPEN_LOOP;
+/** @brief 目标转速 (有符号RPM) */
+static int32_t s_speed_target = 0;
+/** @brief PID输出滤波值 */
+static float s_pid_output_filtered = 0.0f;
+
+/** @brief PID低通滤波系数 */
+#define PID_LPF_ALPHA  (0.085f)
+/** @brief PID启动最小占空比 */
+#define PID_MIN_START_DUTY  (((BSP_PWM_PERIOD + 1U) * 5U) / 100U)
 
 /*============================================================================
  * 私有函数实现
@@ -230,6 +247,11 @@ void motor_ctrl_init(void)
     s_motor_duty = 0U;
     s_last_hall_state = 0U;
     s_last_action = MOTOR_PHASE_ACTION_INVALID;
+    s_control_mode = MOTOR_MODE_OPEN_LOOP;
+    s_speed_target = 0;
+    s_pid_output_filtered = 0.0f;
+    pid_init(&s_speed_pid, 0.008f, 0.00025f, 0.0002f);
+    pid_set_limits(&s_speed_pid, -(float)BSP_PWM_PERIOD, (float)BSP_PWM_PERIOD);
     motor_ctrl_set_startup_trace(MOTOR_STARTUP_STAGE_IDLE,
                                  0U,
                                  0U,
@@ -379,21 +401,31 @@ int motor_start_assisted(uint16_t duty, uint8_t direction)
  */
 int motor_start_simple(uint16_t duty, uint8_t direction)
 {
+    /* [Fix3] 启动前先禁用驱动和下桥，确保PWM状态干净 */
+    bsp_ctrl_sd_disable();
+    bsp_pwm_lower_all_off();
+
     s_motor_fault = MOTOR_FAULT_NONE;
     s_motor_direction = direction;
+
+    /* [Fix6] duty上限边界检查 */
+    if (duty > BSP_PWM_PERIOD) {
+        duty = BSP_PWM_PERIOD;
+    }
     s_motor_duty = duty;
 
     bsp_hall_clear_stats();
     bsp_pwm_clear_break_fault();
     bsp_pwm_duty_set(s_motor_duty);
 
-    s_motor_running = 1U;
     motor_ctrl_set_startup_trace(MOTOR_STARTUP_STAGE_TRACKING,
                                  0U,
                                  bsp_hall_get_state(),
                                  MOTOR_PHASE_ACTION_INVALID,
                                  s_motor_duty);
 
+    /* 先置running=1，让motor_sensor_mode_phase()能够应用换相 */
+    s_motor_running = 1U;
     motor_sensor_mode_phase();
 
     if (s_motor_fault != MOTOR_FAULT_NONE) {
@@ -401,6 +433,7 @@ int motor_start_simple(uint16_t duty, uint8_t direction)
         return -1;
     }
 
+    /* 换相完成后再使能驱动 */
     bsp_ctrl_sd_enable();
 
     return 0;
@@ -573,4 +606,90 @@ motor_phase_action_t motor_ctrl_get_startup_action(void)
 uint16_t motor_ctrl_get_startup_duty(void)
 {
     return s_startup_duty;
+}
+
+/*============================================================================
+ * 速度环控制
+ *============================================================================*/
+
+void motor_ctrl_set_mode(uint8_t mode)
+{
+    s_control_mode = mode;
+    if (mode == MOTOR_MODE_SPEED_PID) {
+        pid_reset(&s_speed_pid);
+        s_pid_output_filtered = 0.0f;
+    }
+}
+
+uint8_t motor_ctrl_get_mode(void)
+{
+    return s_control_mode;
+}
+
+void motor_ctrl_set_speed_target(int32_t rpm)
+{
+    s_speed_target = rpm;
+    s_speed_pid.SetPoint = (float)rpm;
+}
+
+int32_t motor_ctrl_get_speed_target(void)
+{
+    return s_speed_target;
+}
+
+float motor_ctrl_get_pid_output(void)
+{
+    return s_pid_output_filtered;
+}
+
+speed_pid_t *motor_ctrl_get_pid(void)
+{
+    return &s_speed_pid;
+}
+
+void motor_ctrl_speed_pid_tick(void)
+{
+    float pid_out;
+    float abs_out;
+    uint16_t duty;
+    uint8_t desired_dir;
+
+    if (s_control_mode != MOTOR_MODE_SPEED_PID) {
+        return;
+    }
+    if (s_motor_running == 0U) {
+        return;
+    }
+
+    /* 读取有符号转速反馈 */
+    float measured = (float)bsp_hall_get_speed_signed();
+
+    /* PID 计算 */
+    pid_out = pid_compute(&s_speed_pid, measured);
+
+    /* 一阶低通滤波 */
+    s_pid_output_filtered += PID_LPF_ALPHA * (pid_out - s_pid_output_filtered);
+
+    /* 取绝对值作为占空比 */
+    abs_out = (s_pid_output_filtered >= 0.0f) ? s_pid_output_filtered : -s_pid_output_filtered;
+    duty = (uint16_t)abs_out;
+    if (duty > BSP_PWM_PERIOD) {
+        duty = BSP_PWM_PERIOD;
+    }
+
+    /* 方向由目标转速符号决定 */
+    desired_dir = (s_speed_target >= 0) ? MOTOR_DIR_CW : MOTOR_DIR_CCW;
+
+    if (desired_dir != s_motor_direction) {
+        /* 方向变化：停机→换向→重启 */
+        motor_stop();
+        pid_reset(&s_speed_pid);
+        s_pid_output_filtered = 0.0f;
+        motor_start_simple(PID_MIN_START_DUTY, desired_dir);
+        return;
+    }
+
+    /* 更新占空比并触发换相 */
+    s_motor_duty = duty;
+    motor_sensor_mode_phase();  /* 立即应用新占空比到当前霍尔状态 */
 }

@@ -8,18 +8,21 @@
 #include "bsp_hall.h"
 
 #include "tim.h"
+#include "motor_ctrl.h"
 
-/* 外部函数声明 - 来自motor_ctrl模块的换相处理函数 */
+/* 外部函数声明 - motor_sensor_mode_phase 未在 motor_ctrl.h 中声明 */
 extern void motor_sensor_mode_phase(void);
 
 /*============================================================================
  * 私有常量定义
  *============================================================================*/
 
-/** @brief TIM5定时器时钟频率 (50kHz = 20us周期) */
-#define BSP_HALL_TIM5_TICK_HZ              (50000UL)
-/** @brief 机械角度每转的电气换相次数 (6步换相) */
-#define BSP_HALL_TRANSITIONS_PER_REV       (6UL)
+/** @brief TIM5定时器时钟频率: 170MHz / (1679+1) = 101190Hz */
+#define BSP_HALL_TIM5_TICK_HZ              (101190UL)
+/** @brief 电机极对数 */
+#define BSP_HALL_POLE_PAIRS                (4UL)
+/** @brief 每转电气换相次数 = 6步 × 极对数 */
+#define BSP_HALL_TRANSITIONS_PER_REV       (6UL * BSP_HALL_POLE_PAIRS)
 /** @brief TIM5启动失败错误码 */
 #define BSP_HALL_ERROR_TIM5_START          (1U)
 /** @brief RPM滑动平均滤波窗口大小 */
@@ -207,17 +210,24 @@ uint32_t bsp_hall_get_speed(void)
     uint32_t avg_ticks;
     uint8_t i;
     uint8_t count;
+    uint32_t buf_snap[BSP_HALL_SPEED_FILTER_SIZE];
 
+    /* [Fix5] 关中断，原子拷贝缓冲区快照，防止读写竞态 */
+    NVIC_DisableIRQ(TIM1_UP_TIM16_IRQn);
     count = s_period_buffer_count;
+    for (i = 0U; i < count; i++) {
+        buf_snap[i] = s_period_buffer[i];
+    }
+    NVIC_EnableIRQ(TIM1_UP_TIM16_IRQn);
 
     /* 没有有效数据时返回0 */
     if (count == 0U) {
         return 0U;
     }
 
-    /* 计算缓冲区中所有有效周期的总和 */
+    /* 计算快照中所有有效周期的总和 */
     for (i = 0U; i < count; i++) {
-        sum += s_period_buffer[i];
+        sum += buf_snap[i];
     }
 
     /* 计算平均周期 */
@@ -230,6 +240,23 @@ uint32_t bsp_hall_get_speed(void)
 
     /* 基于平均周期计算RPM */
     return (uint32_t)((BSP_HALL_TIM5_TICK_HZ * 60UL) / (avg_ticks * BSP_HALL_TRANSITIONS_PER_REV));
+}
+
+/**
+ * @brief 获取有符号转速
+ * @return int32_t CW为正, CCW为负, 未知方向返回0
+ */
+int32_t bsp_hall_get_speed_signed(void)
+{
+    uint32_t rpm = bsp_hall_get_speed();
+    int8_t dir = s_direction;
+
+    if (dir == BSP_HALL_DIR_CW) {
+        return (int32_t)rpm;
+    } else if (dir == BSP_HALL_DIR_CCW) {
+        return -(int32_t)rpm;
+    }
+    return 0;
 }
 
 /**
@@ -310,9 +337,15 @@ uint8_t bsp_hall_is_irq_enabled(void)
  */
 void bsp_hall_clear_stats(void)
 {
-    uint32_t now = __HAL_TIM_GET_COUNTER(&htim5);
-    uint8_t state = bsp_hall_sample_state();
+    uint32_t now;
+    uint8_t state;
     uint8_t i;
+
+    /* [Fix7] 关中断，防止清零序列被TIM1中断打断导致状态不一致 */
+    NVIC_DisableIRQ(TIM1_UP_TIM16_IRQn);
+
+    now = __HAL_TIM_GET_COUNTER(&htim5);
+    state = bsp_hall_sample_state();
 
     s_hall_state = state;
     s_hall_last_state = state;
@@ -323,12 +356,13 @@ void bsp_hall_clear_stats(void)
     s_invalid_transition_count = 0U;
     s_direction = BSP_HALL_DIR_UNKNOWN;
 
-    /* 清除RPM滤波缓冲区 */
     for (i = 0U; i < BSP_HALL_SPEED_FILTER_SIZE; i++) {
         s_period_buffer[i] = 0U;
     }
     s_period_buffer_index = 0U;
     s_period_buffer_count = 0U;
+
+    NVIC_EnableIRQ(TIM1_UP_TIM16_IRQn);
 }
 
 /**

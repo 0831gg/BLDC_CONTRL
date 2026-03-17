@@ -65,6 +65,12 @@ uint8_t bsp_hall_get_last_state(void);
 uint32_t bsp_hall_get_speed(void);
 
 /**
+ * @brief 获取有符号转速
+ * @return int32_t 转速 (RPM), CW为正, CCW为负, 未知方向返回0
+ */
+int32_t bsp_hall_get_speed_signed(void);
+
+/**
  * @brief 获取最近一次换相的时刻（定时器计数）
  * @return uint32_t 定时器计数值
  */

@@ -31,6 +31,7 @@ extern "C" {
 
 #include "main.h"
 #include "motor_phase_tab.h"
+#include "pid.h"
 
 /* 方向定义 */
 #define MOTOR_DIR_CW               (1U)   /**< @brief 顺时针 */
@@ -41,6 +42,10 @@ extern "C" {
 #define MOTOR_FAULT_BREAK          (1U)   /**< @brief 硬件故障（Break触发） */
 #define MOTOR_FAULT_HALL_INVALID   (2U)   /**< @brief 霍尔状态无效 */
 #define MOTOR_FAULT_START_TIMEOUT  (3U)   /**< @brief 启动超时 */
+
+/* 控制模式 */
+#define MOTOR_MODE_OPEN_LOOP       (0U)   /**< @brief 开环模式 */
+#define MOTOR_MODE_SPEED_PID       (1U)   /**< @brief PID速度环模式 */
 
 /**
  * @brief 初始化电机控制模块
@@ -172,6 +177,15 @@ motor_phase_action_t motor_ctrl_get_startup_action(void);
  * @return uint16_t 占空比
  */
 uint16_t motor_ctrl_get_startup_duty(void);
+
+/* 速度环控制 */
+void motor_ctrl_set_mode(uint8_t mode);
+uint8_t motor_ctrl_get_mode(void);
+void motor_ctrl_set_speed_target(int32_t rpm);
+int32_t motor_ctrl_get_speed_target(void);
+void motor_ctrl_speed_pid_tick(void);
+float motor_ctrl_get_pid_output(void);
+speed_pid_t *motor_ctrl_get_pid(void);
 
 #ifdef __cplusplus
 }

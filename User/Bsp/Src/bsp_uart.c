@@ -1,126 +1,110 @@
 /**
  * @file    bsp_uart.c
- * @brief   UART调试通信实现
- * @details 实现UART1的各种数据发送功能
- *          支持DMA和阻塞两种发送模式
- * @see     bsp_uart.h
+ * @brief   USART1 shared transport implementation
+ * @details Provides one reusable transmit backend for both BSP UART helpers
+ *          and VOFA. The transmit mode is selected once in bsp_uart.h.
  */
 
 #include "bsp_uart.h"
 #include "usart.h"
+
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 
-/** @brief UART发送缓冲区 */
 static uint8_t uart_tx_buf[256];
 
 #if BSP_UART_USE_DMA
-/** @brief DMA发送状态标志 */
-static volatile uint8_t s_uart_tx_busy = 0;
-
-/** @brief DMA发送缓冲区（必须是静态变量） */
+static volatile uint8_t s_uart_tx_busy = 0U;
 static uint8_t s_dma_tx_buf[256];
 #endif
 
-/**
- * @brief 初始化UART
- * @note USART1已在CubeMX中配置好，这里无需额外初始化
- */
-void BSP_UART_Init(void)
+static uint32_t bsp_uart_normalize_timeout(uint32_t timeout_ms)
 {
-    /* CubeMX 已完成 MX_USART1_UART_Init(), 无需额外配置 */
+    return (timeout_ms == 0U) ? BSP_UART_TX_TIMEOUT_MS : timeout_ms;
 }
 
-/**
- * @brief 发送单字节数据
- * @param data 要发送的字节
- */
-void BSP_UART_SendByte(uint8_t data)
+static HAL_StatusTypeDef bsp_uart_transmit_blocking(const uint8_t *data, uint16_t len, uint32_t timeout_ms)
 {
-#if BSP_UART_USE_DMA
-    uint32_t timeout_start = HAL_GetTick();
+    return HAL_UART_Transmit(&huart1, (uint8_t *)data, len, bsp_uart_normalize_timeout(timeout_ms));
+}
 
-    /* 等待DMA空闲 */
+#if BSP_UART_USE_DMA
+static HAL_StatusTypeDef bsp_uart_transmit_dma(const uint8_t *data, uint16_t len, uint32_t timeout_ms)
+{
+    HAL_StatusTypeDef status;
+    uint32_t timeout_start = HAL_GetTick();
+    uint32_t wait_timeout = bsp_uart_normalize_timeout(timeout_ms);
+
     while (s_uart_tx_busy) {
-        if ((HAL_GetTick() - timeout_start) > BSP_UART_DMA_TIMEOUT_MS) {
-            return;  /* 超时，丢弃数据 */
+        if ((HAL_GetTick() - timeout_start) > wait_timeout) {
+            return HAL_TIMEOUT;
         }
     }
 
-    s_dma_tx_buf[0] = data;
-    s_uart_tx_busy = 1;
-    HAL_UART_Transmit_DMA(&huart1, s_dma_tx_buf, 1);
-#else
-    HAL_UART_Transmit(&huart1, &data, 1, HAL_MAX_DELAY);
+    if (len > sizeof(s_dma_tx_buf)) {
+        len = (uint16_t)sizeof(s_dma_tx_buf);
+    }
+
+    memcpy(s_dma_tx_buf, data, len);
+    s_uart_tx_busy = 1U;
+
+    status = HAL_UART_Transmit_DMA(&huart1, s_dma_tx_buf, len);
+    if (status != HAL_OK) {
+        s_uart_tx_busy = 0U;
+    }
+
+    return status;
+}
 #endif
+
+void BSP_UART_Init(void)
+{
+    /* CubeMX already initializes USART1 in MX_USART1_UART_Init(). */
 }
 
-/**
- * @brief 发送字符串
- * @param str 字符串指针
- * @note 发送NULL结尾的字符串
- */
+HAL_StatusTypeDef BSP_UART_Transmit(const uint8_t *data, uint16_t len, uint32_t timeout_ms)
+{
+    if (data == NULL || len == 0U) {
+        return HAL_ERROR;
+    }
+
+#if BSP_UART_USE_DMA
+    /* If CubeMX keeps the TX DMA linked, use DMA. Otherwise fallback safely. */
+    if (huart1.hdmatx != NULL) {
+        return bsp_uart_transmit_dma(data, len, timeout_ms);
+    }
+#endif
+
+    return bsp_uart_transmit_blocking(data, len, timeout_ms);
+}
+
+void BSP_UART_SendByte(uint8_t data)
+{
+    (void)BSP_UART_Transmit(&data, 1U, 0U);
+}
+
 void BSP_UART_SendString(const char *str)
 {
     uint16_t len;
 
-    if (str == NULL) return;
-
-    len = strlen(str);
-    if (len == 0) return;
-
-#if BSP_UART_USE_DMA
-    uint32_t timeout_start = HAL_GetTick();
-
-    /* 等待DMA空闲 */
-    while (s_uart_tx_busy) {
-        if ((HAL_GetTick() - timeout_start) > BSP_UART_DMA_TIMEOUT_MS) {
-            return;  /* 超时，丢弃数据 */
-        }
+    if (str == NULL) {
+        return;
     }
 
-    if (len > sizeof(s_dma_tx_buf)) len = sizeof(s_dma_tx_buf);
-    memcpy(s_dma_tx_buf, str, len);
-    s_uart_tx_busy = 1;
-    HAL_UART_Transmit_DMA(&huart1, s_dma_tx_buf, len);
-#else
-    HAL_UART_Transmit(&huart1, (uint8_t *)str, len, HAL_MAX_DELAY);
-#endif
+    len = (uint16_t)strlen(str);
+    if (len == 0U) {
+        return;
+    }
+
+    (void)BSP_UART_Transmit((const uint8_t *)str, len, 0U);
 }
 
-/**
- * @brief 发送数据块
- * @param data 数据指针
- * @param len 数据长度
- */
 void BSP_UART_SendData(uint8_t *data, uint16_t len)
 {
-    if (data == NULL || len == 0) return;
-
-#if BSP_UART_USE_DMA
-    uint32_t timeout_start = HAL_GetTick();
-
-    /* 等待DMA空闲 */
-    while (s_uart_tx_busy) {
-        if ((HAL_GetTick() - timeout_start) > BSP_UART_DMA_TIMEOUT_MS) {
-            return;  /* 超时，丢弃数据 */
-        }
-    }
-
-    if (len > sizeof(s_dma_tx_buf)) len = sizeof(s_dma_tx_buf);
-    memcpy(s_dma_tx_buf, data, len);
-    s_uart_tx_busy = 1;
-    HAL_UART_Transmit_DMA(&huart1, s_dma_tx_buf, len);
-#else
-    HAL_UART_Transmit(&huart1, data, len, HAL_MAX_DELAY);
-#endif
+    (void)BSP_UART_Transmit((const uint8_t *)data, len, 0U);
 }
 
-/**
- * @brief 接收单字节（阻塞）
- * @return uint8_t 接收到的数据
- */
 uint8_t BSP_UART_ReceiveByte(void)
 {
     uint8_t data = 0;
@@ -128,63 +112,44 @@ uint8_t BSP_UART_ReceiveByte(void)
     return data;
 }
 
-/**
- * @brief 格式化打印（类似printf）
- * @param fmt 格式字符串
- * @param ... 可变参数
- * @note 支持常见的printf格式符: %d, %u, %x, %f, %s, %c
- */
 void BSP_UART_Printf(const char *fmt, ...)
 {
     va_list args;
     int len;
 
+    if (fmt == NULL) {
+        return;
+    }
+
     va_start(args, fmt);
     len = vsnprintf((char *)uart_tx_buf, sizeof(uart_tx_buf), fmt, args);
     va_end(args);
 
-    if (len > 0) {
-        if ((uint16_t)len > sizeof(uart_tx_buf))
-            len = sizeof(uart_tx_buf);
-
-#if BSP_UART_USE_DMA
-        uint32_t timeout_start = HAL_GetTick();
-
-        /* 等待DMA空闲 */
-        while (s_uart_tx_busy) {
-            if ((HAL_GetTick() - timeout_start) > BSP_UART_DMA_TIMEOUT_MS) {
-                return;  /* 超时，丢弃数据 */
-            }
-        }
-
-        memcpy(s_dma_tx_buf, uart_tx_buf, (uint16_t)len);
-        s_uart_tx_busy = 1;
-        HAL_UART_Transmit_DMA(&huart1, s_dma_tx_buf, (uint16_t)len);
-#else
-        HAL_UART_Transmit(&huart1, uart_tx_buf, (uint16_t)len, HAL_MAX_DELAY);
-#endif
+    if (len <= 0) {
+        return;
     }
+
+    if ((size_t)len >= sizeof(uart_tx_buf)) {
+        len = (int)(sizeof(uart_tx_buf) - 1U);
+    }
+
+    (void)BSP_UART_Transmit(uart_tx_buf, (uint16_t)len, 0U);
 }
 
 #if BSP_UART_USE_DMA
-/**
- * @brief DMA传输完成回调
- * @note  需要在HAL_UART_TxCpltCallback中调用
- */
-void BSP_UART_DMA_TxCpltCallback(void *huart)
+void BSP_UART_DMA_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-    UART_HandleTypeDef *uart_handle = (UART_HandleTypeDef *)huart;
-
-    if (uart_handle->Instance == USART1) {
-        s_uart_tx_busy = 0;
+    if (huart != NULL && huart->Instance == USART1) {
+        s_uart_tx_busy = 0U;
     }
 }
+#endif
 
-/**
- * @brief 检查UART DMA是否忙
- */
 uint8_t BSP_UART_IsBusy(void)
 {
+#if BSP_UART_USE_DMA
     return s_uart_tx_busy;
-}
+#else
+    return 0U;
 #endif
+}

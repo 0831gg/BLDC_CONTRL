@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'd:/Electrical Design/MOTOR/My_Motor_Control_Project/my_control/User' -name *.c -type f)"
+    ]
+  }
+}
